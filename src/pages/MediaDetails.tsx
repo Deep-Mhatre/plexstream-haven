@@ -1,18 +1,22 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchMediaDetails, fetchRecommendations, MediaDetails as MediaDetailsType } from '@/services/api';
 import Navbar from '@/components/Navbar';
 import FeaturedMedia from '@/components/FeaturedMedia';
 import MediaSlider from '@/components/MediaSlider';
-import { LoaderCircle } from 'lucide-react';
+import VideoPlayer from '@/components/VideoPlayer';
+import { LoaderCircle, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { getImageUrl } from '@/services/api';
 
 const MediaDetails = () => {
   const { mediaType, id } = useParams<{ mediaType: 'movie' | 'tv'; id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   
   // Redirect if not authenticated
   useEffect(() => {
@@ -41,6 +45,14 @@ const MediaDetails = () => {
     queryFn: () => fetchRecommendations(mediaType!, parseInt(id!)),
     enabled: !!mediaType && !!id,
   });
+  
+  const handlePlayVideo = () => {
+    setIsPlayingVideo(true);
+  };
+
+  const handleCloseVideo = () => {
+    setIsPlayingVideo(false);
+  };
   
   if (!isAuthenticated) {
     return null; // Don't render the page if not authenticated
@@ -97,13 +109,18 @@ const MediaDetails = () => {
     );
   }
   
+  // Find trailer if available
+  const trailer = mediaDetails.videos?.results.find(
+    video => video.site === 'YouTube' && video.type === 'Trailer'
+  );
+  
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       
       <main>
         {/* Featured Media Section */}
-        <FeaturedMedia media={mediaDetails} />
+        <FeaturedMedia media={mediaDetails} onPlay={handlePlayVideo} />
         
         {/* Cast Section */}
         {mediaDetails.credits && mediaDetails.credits.cast && mediaDetails.credits.cast.length > 0 && (
@@ -111,8 +128,8 @@ const MediaDetails = () => {
             <h2 className="text-2xl font-semibold mb-6">Cast</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {mediaDetails.credits.cast.slice(0, 6).map((person) => (
-                <div key={person.id} className="text-center">
-                  <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2">
+                <div key={person.id} className="text-center hover-scale">
+                  <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2 shadow-md">
                     <img
                       src={
                         person.profile_path
@@ -137,56 +154,56 @@ const MediaDetails = () => {
         )}
         
         {/* Details Section */}
-        <section className="py-8 bg-muted">
+        <section className="py-8 bg-muted/50 backdrop-blur-sm">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Left column - General Info */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Information</h3>
+              <div className="bg-background/50 backdrop-blur-sm p-6 rounded-lg shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-primary">Information</h3>
                 <div className="space-y-3">
                   <div>
                     <span className="text-sm text-muted-foreground">Status: </span>
-                    <span>{mediaDetails.status}</span>
+                    <span className="font-medium">{mediaDetails.status}</span>
                   </div>
                   
                   {mediaDetails.release_date && (
                     <div>
                       <span className="text-sm text-muted-foreground">Release Date: </span>
-                      <span>{new Date(mediaDetails.release_date).toLocaleDateString()}</span>
+                      <span className="font-medium">{new Date(mediaDetails.release_date).toLocaleDateString()}</span>
                     </div>
                   )}
                   
                   {mediaDetails.first_air_date && (
                     <div>
                       <span className="text-sm text-muted-foreground">First Air Date: </span>
-                      <span>{new Date(mediaDetails.first_air_date).toLocaleDateString()}</span>
+                      <span className="font-medium">{new Date(mediaDetails.first_air_date).toLocaleDateString()}</span>
                     </div>
                   )}
                   
                   {mediaDetails.runtime && (
                     <div>
                       <span className="text-sm text-muted-foreground">Runtime: </span>
-                      <span>{Math.floor(mediaDetails.runtime / 60)}h {mediaDetails.runtime % 60}m</span>
+                      <span className="font-medium">{Math.floor(mediaDetails.runtime / 60)}h {mediaDetails.runtime % 60}m</span>
                     </div>
                   )}
                   
                   {mediaDetails.number_of_seasons && (
                     <div>
                       <span className="text-sm text-muted-foreground">Seasons: </span>
-                      <span>{mediaDetails.number_of_seasons}</span>
+                      <span className="font-medium">{mediaDetails.number_of_seasons}</span>
                     </div>
                   )}
                 </div>
               </div>
               
               {/* Middle column - Genres */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Genres</h3>
+              <div className="bg-background/50 backdrop-blur-sm p-6 rounded-lg shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-primary">Genres</h3>
                 <div className="flex flex-wrap gap-2">
                   {mediaDetails.genres.map((genre) => (
                     <span 
                       key={genre.id}
-                      className="px-3 py-1 bg-background rounded-full text-sm"
+                      className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
                     >
                       {genre.name}
                     </span>
@@ -195,21 +212,25 @@ const MediaDetails = () => {
               </div>
               
               {/* Right column - Production Companies */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Production</h3>
+              <div className="bg-background/50 backdrop-blur-sm p-6 rounded-lg shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-primary">Production</h3>
                 <div className="space-y-3">
                   {mediaDetails.production_companies.slice(0, 3).map((company) => (
-                    <div key={company.id} className="flex items-center space-x-2">
-                      {company.logo_path ? (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w92${company.logo_path}`}
-                          alt={company.name}
-                          className="h-6 object-contain"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 bg-background rounded"></div>
-                      )}
-                      <span className="text-sm">{company.name}</span>
+                    <div key={company.id} className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-white rounded-md flex items-center justify-center p-1">
+                        {company.logo_path ? (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w92${company.logo_path}`}
+                            alt={company.name}
+                            className="h-8 object-contain"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center text-xs font-bold text-gray-500">
+                            {company.name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-medium">{company.name}</span>
                     </div>
                   ))}
                 </div>
@@ -229,6 +250,19 @@ const MediaDetails = () => {
           </section>
         )}
       </main>
+
+      {/* Video Player Dialog */}
+      <Dialog open={isPlayingVideo} onOpenChange={setIsPlayingVideo}>
+        <DialogContent className="max-w-5xl w-[90vw] p-0 bg-black border-none">
+          <VideoPlayer
+            videoUrl={trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : undefined}
+            thumbnailUrl={getImageUrl(mediaDetails.backdrop_path, 'original')}
+            title={mediaDetails.title || mediaDetails.name || ''}
+            onClose={handleCloseVideo}
+            autoPlay={true}
+          />
+        </DialogContent>
+      </Dialog>
       
       {/* Footer */}
       <footer className="bg-background border-t border-border py-6">

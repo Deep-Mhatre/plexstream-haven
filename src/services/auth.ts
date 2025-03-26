@@ -1,112 +1,160 @@
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  subscription?: {
-    plan: 'basic' | 'standard' | 'premium';
-    validUntil: Date;
-  };
-}
+import { User } from '@/context/AuthContext';
 
-interface AuthResponse {
-  user: User;
-  token: string;
-}
+// Simulated user database
+const USERS_STORAGE_KEY = 'plexstream_users';
+const CURRENT_USER_KEY = 'plexstream_current_user';
+const USER_TOKEN_KEY = 'plexstream_auth_token';
 
-// In a real app, these functions would communicate with a backend API
-// For now, we'll simulate the behavior with localStorage
-
-export const login = async (email: string, password: string): Promise<AuthResponse> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // This is where we would normally call the backend API
-  // For demo purposes, we'll use a simple validation
-  if (email === 'demo@example.com' && password === 'password') {
-    const user: User = {
-      id: '1',
-      email: 'demo@example.com',
-      name: 'Demo User',
-      subscription: {
-        plan: 'standard',
-        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      },
-    };
-    
-    const token = 'demo-jwt-token';
-    return { user, token };
-  }
-  
-  // Check if this user exists in our "database" (localStorage)
-  const usersStr = localStorage.getItem('users');
-  if (usersStr) {
-    const users = JSON.parse(usersStr);
-    const user = users.find((u: User & { password: string }) => 
-      u.email === email && u.password === password
-    );
-    
-    if (user) {
-      // Don't include password in the returned user object
-      const { password: _, ...userWithoutPassword } = user;
-      const token = `jwt-token-${Math.random().toString(36).substr(2, 9)}`;
-      return { user: userWithoutPassword, token };
-    }
-  }
-  
-  throw new Error('Invalid email or password');
+// Helper to get users from localStorage
+const getUsers = (): User[] => {
+  const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
+  return usersJson ? JSON.parse(usersJson) : [];
 };
 
-export const register = async (name: string, email: string, password: string): Promise<AuthResponse> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 800));
+// Helper to save users to localStorage
+const saveUsers = (users: User[]): void => {
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+};
+
+// Helper to save the current user to localStorage
+const saveCurrentUser = (user: User): void => {
+  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+};
+
+// Generate a simple JWT token (simulated)
+const generateToken = (user: User): string => {
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT'
+  };
   
-  // Validate inputs
-  if (!name || !email || !password) {
-    throw new Error('All fields are required');
+  const payload = {
+    userId: user.id,
+    email: user.email,
+    exp: new Date().getTime() + 24 * 60 * 60 * 1000 // 24 hours
+  };
+  
+  // In a real app, these would be properly signed
+  const token = `${btoa(JSON.stringify(header))}.${btoa(JSON.stringify(payload))}.signature`;
+  localStorage.setItem(USER_TOKEN_KEY, token);
+  return token;
+};
+
+// Validate token (simulated)
+export const validateToken = (): boolean => {
+  const token = localStorage.getItem(USER_TOKEN_KEY);
+  if (!token) return false;
+  
+  try {
+    const [, payloadBase64] = token.split('.');
+    const payload = JSON.parse(atob(payloadBase64));
+    
+    // Check if token is expired
+    return payload.exp > new Date().getTime();
+  } catch (error) {
+    return false;
   }
+};
+
+// Register a new user
+export const register = async (
+  name: string,
+  email: string,
+  password: string
+): Promise<{ user: User; token: string }> => {
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
   
-  if (password.length < 6) {
-    throw new Error('Password must be at least 6 characters');
-  }
+  const users = getUsers();
   
-  // Check if email already exists
-  const usersStr = localStorage.getItem('users');
-  let users = [];
-  
-  if (usersStr) {
-    users = JSON.parse(usersStr);
-    if (users.some((u: User) => u.email === email)) {
-      throw new Error('Email already exists');
-    }
+  // Check if user already exists
+  if (users.some(user => user.email === email)) {
+    throw new Error('User already exists');
   }
   
   // Create new user
-  const newUser = {
-    id: `user-${Math.random().toString(36).substr(2, 9)}`,
+  const newUser: User = {
+    id: `user_${Date.now()}`,
     name,
     email,
-    password, // In a real app, this would be hashed
     subscription: {
       plan: 'basic',
-      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days free trial
-    },
+      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days trial
+    }
   };
   
-  // Save user to our "database"
+  // Save user
   users.push(newUser);
-  localStorage.setItem('users', JSON.stringify(users));
+  saveUsers(users);
+  saveCurrentUser(newUser);
   
-  // Return user without password and with token
-  const { password: _, ...userWithoutPassword } = newUser;
-  const token = `jwt-token-${Math.random().toString(36).substr(2, 9)}`;
+  // Generate token
+  const token = generateToken(newUser);
   
-  return { user: userWithoutPassword, token };
+  return { user: newUser, token };
 };
 
+// Login user
+export const login = async (
+  email: string,
+  password: string
+): Promise<{ user: User; token: string }> => {
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const users = getUsers();
+  
+  // Find user
+  const user = users.find(user => user.email === email);
+  
+  if (!user) {
+    throw new Error('Invalid credentials');
+  }
+  
+  // In a real app, we would validate the password
+  // For demo purposes, we're just checking if the user exists
+  
+  saveCurrentUser(user);
+  
+  // Generate token
+  const token = generateToken(user);
+  
+  return { user, token };
+};
+
+// Get current user
+export const getCurrentUser = (): User | null => {
+  const userJson = localStorage.getItem(CURRENT_USER_KEY);
+  return userJson ? JSON.parse(userJson) : null;
+};
+
+// Logout user
 export const logout = (): void => {
-  // Here we would typically invalidate the token on the server
-  // For now, we'll just simulate the behavior
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+  localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem(USER_TOKEN_KEY);
+};
+
+// Update user subscription
+export const updateSubscription = (
+  userId: string,
+  plan: 'basic' | 'standard' | 'premium'
+): User => {
+  const users = getUsers();
+  const userIndex = users.findIndex(user => user.id === userId);
+  
+  if (userIndex === -1) {
+    throw new Error('User not found');
+  }
+  
+  // Update user subscription
+  users[userIndex].subscription = {
+    plan,
+    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+  };
+  
+  saveUsers(users);
+  saveCurrentUser(users[userIndex]);
+  
+  return users[userIndex];
 };
