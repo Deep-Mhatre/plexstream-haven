@@ -26,6 +26,9 @@ const FeaturedMedia = ({ media, onPlay }: FeaturedMediaProps) => {
       : '';
       
   const director = media.credits?.crew.find(person => person.job === 'Director');
+  
+  // OMDb doesn't provide trailers, so we'll check if we have any video data
+  // If not, we'll just use a placeholder or hide the trailer button
   const trailer = media.videos?.results.find(video => 
     video.site === 'YouTube' && 
     (video.type === 'Trailer' || video.type === 'Teaser')
@@ -46,16 +49,19 @@ const FeaturedMedia = ({ media, onPlay }: FeaturedMediaProps) => {
       variant: "default",
     });
   };
+  
+  // Create background style using the backdrop or poster
+  const backgroundStyle = {
+    backgroundImage: `url(${getImageUrl(media.backdrop_path || media.poster_path, 'original')})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center top',
+    backgroundRepeat: 'no-repeat',
+  };
 
   return (
     <div className="w-full bg-background relative">
       {/* Backdrop image */}
-      <div className="absolute inset-0 w-full h-full">
-        <img
-          src={getImageUrl(media.backdrop_path, 'original')}
-          alt={title}
-          className="w-full h-full object-cover brightness-[0.7]"
-        />
+      <div className="absolute inset-0 w-full h-full" style={backgroundStyle}>
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/50"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent"></div>
       </div>
@@ -75,6 +81,10 @@ const FeaturedMedia = ({ media, onPlay }: FeaturedMediaProps) => {
                 src={getImageUrl(media.poster_path, 'w500')}
                 alt={title}
                 className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-105"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'https://via.placeholder.com/500x750?text=No+Image';
+                }}
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                 <Button 
@@ -161,6 +171,7 @@ const FeaturedMedia = ({ media, onPlay }: FeaturedMediaProps) => {
                 Watch Now
               </Button>
               
+              {/* Show trailer button only if a trailer is available */}
               {trailer && (
                 <Button
                   variant="outline"

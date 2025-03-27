@@ -58,15 +58,19 @@ const Hero = ({ media, isLoading = false }: HeroProps) => {
     setIsMuted(!isMuted);
   };
 
+  // Create a background image for the hero
+  // For OMDb, we'll use the poster as backdrop since OMDb doesn't have separate backdrop images
+  const backgroundStyle = {
+    backgroundImage: `url(${getImageUrl(media.backdrop_path || media.poster_path, 'original')})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+  };
+
   return (
     <div className="w-full h-[85vh] relative overflow-hidden">
-      {/* Video Background (simulated) */}
-      <div className="absolute inset-0 w-full h-full">
-        <img 
-          src={getImageUrl(media.backdrop_path, 'original')} 
-          alt={title}
-          className="w-full h-full object-cover object-center brightness-[0.7] scale-105"
-        />
+      {/* Background Image */}
+      <div className="absolute inset-0 w-full h-full" style={backgroundStyle}>
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent"></div>
       </div>
@@ -148,7 +152,7 @@ const Hero = ({ media, isLoading = false }: HeroProps) => {
             16+
           </span>
           <div className="flex flex-wrap gap-2">
-            {["Action", "Drama", "Sci-Fi"].map((genre) => (
+            {["Drama", "Action", "Adventure"].map((genre) => (
               <span key={genre} className="bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-md text-white/90 text-xs">
                 {genre}
               </span>
