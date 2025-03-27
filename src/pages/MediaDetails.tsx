@@ -110,7 +110,7 @@ const MediaDetails = () => {
   }
   
   // Find trailer if available
-  const trailer = mediaDetails.videos?.results.find(
+  const trailer = mediaDetails?.videos?.results.find(
     video => video.site === 'YouTube' && video.type === 'Trailer'
   );
   
@@ -256,8 +256,8 @@ const MediaDetails = () => {
         <DialogContent className="max-w-5xl w-[90vw] p-0 bg-black border-none">
           <VideoPlayer
             videoUrl={trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : undefined}
-            thumbnailUrl={getImageUrl(mediaDetails.backdrop_path, 'original')}
-            title={mediaDetails.title || mediaDetails.name || ''}
+            thumbnailUrl={getImageUrl(mediaDetails?.backdrop_path || '', 'original')}
+            title={mediaDetails?.title || mediaDetails?.name || ''}
             onClose={handleCloseVideo}
             autoPlay={true}
           />

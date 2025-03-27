@@ -1,5 +1,14 @@
 
-import { User } from '@/context/AuthContext';
+// Define our own User type instead of importing it from AuthContext
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  subscription: {
+    plan: 'basic' | 'standard' | 'premium';
+    validUntil: Date;
+  };
+}
 
 // Simulated user database
 const USERS_STORAGE_KEY = 'plexstream_users';

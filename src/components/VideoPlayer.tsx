@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, X, Maximize, Minimize, SkipBack, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,12 +32,26 @@ const VideoPlayer = ({
   const playerRef = useRef<HTMLDivElement>(null);
   const controlsTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // For demo purposes, use a placeholder video or the thumbnail
-  const actualVideoUrl = videoUrl || 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4';
+  const getYouTubeEmbedUrl = (url?: string) => {
+    if (!url) return null;
+    
+    const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
+    const match = url.match(youtubeRegex);
+    
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}?autoplay=${autoPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}`;
+    }
+    
+    return null;
+  };
+
+  const youtubeEmbedUrl = getYouTubeEmbedUrl(videoUrl);
+  
+  const actualVideoUrl = youtubeEmbedUrl ? null : (videoUrl || 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4');
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || youtubeEmbedUrl) return;
 
     const updateTime = () => {
       setCurrentTime(video.currentTime);
@@ -68,19 +81,19 @@ const VideoPlayer = ({
   }, []);
 
   useEffect(() => {
-    if (isPlaying) {
-      videoRef.current?.play();
-    } else {
-      videoRef.current?.pause();
+    if (isPlaying && videoRef.current && !youtubeEmbedUrl) {
+      videoRef.current.play();
+    } else if (!isPlaying && videoRef.current && !youtubeEmbedUrl) {
+      videoRef.current.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, youtubeEmbedUrl]);
 
   useEffect(() => {
-    if (videoRef.current) {
+    if (videoRef.current && !youtubeEmbedUrl) {
       videoRef.current.volume = volume;
       videoRef.current.muted = isMuted;
     }
-  }, [volume, isMuted]);
+  }, [volume, isMuted, youtubeEmbedUrl]);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
@@ -169,20 +182,28 @@ const VideoPlayer = ({
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setIsControlsVisible(false)}
     >
-      {/* Video */}
-      <video
-        ref={videoRef}
-        className="w-full h-full object-contain"
-        poster={thumbnailUrl}
-        playsInline
-        preload="metadata"
-        autoPlay={autoPlay}
-      >
-        <source src={actualVideoUrl} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+      {youtubeEmbedUrl ? (
+        <iframe
+          className="w-full h-full"
+          src={youtubeEmbedUrl}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          title={title}
+        ></iframe>
+      ) : (
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain"
+          poster={thumbnailUrl}
+          playsInline
+          preload="metadata"
+          autoPlay={autoPlay}
+        >
+          <source src={actualVideoUrl} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      )}
       
-      {/* Close button */}
       {onClose && (
         <button 
           className="absolute top-4 right-4 z-20 bg-black/50 p-2 rounded-full hover:bg-black/70 transition-colors"
@@ -192,128 +213,129 @@ const VideoPlayer = ({
         </button>
       )}
       
-      {/* Center play/pause button */}
-      <div 
-        className={cn(
-          "absolute inset-0 flex items-center justify-center transition-opacity duration-300",
-          isPlaying && !isControlsVisible ? "opacity-0" : "opacity-100",
-          isPlaying && !isControlsVisible ? "pointer-events-none" : "pointer-events-auto"
-        )}
-        onClick={togglePlay}
-      >
-        <div className="bg-black/30 backdrop-blur-sm p-6 rounded-full">
-          {isPlaying ? (
-            <Pause className="h-12 w-12 text-white" />
-          ) : (
-            <Play className="h-12 w-12 text-white" fill="white" />
-          )}
-        </div>
-      </div>
-      
-      {/* Controls overlay */}
-      <div 
-        className={cn(
-          "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent px-4 py-5 transition-opacity duration-300",
-          isPlaying && !isControlsVisible ? "opacity-0" : "opacity-100",
-          isPlaying && !isControlsVisible ? "pointer-events-none" : "pointer-events-auto"
-        )}
-      >
-        {/* Progress bar */}
-        <div className="mb-4">
-          <Slider
-            value={[progress]}
-            min={0}
-            max={100}
-            step={0.1}
-            onValueChange={handleProgressChange}
-            className="cursor-pointer"
-          />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-white hover:bg-white/10"
-              onClick={togglePlay}
-            >
+      {!youtubeEmbedUrl && (
+        <>
+          <div 
+            className={cn(
+              "absolute inset-0 flex items-center justify-center transition-opacity duration-300",
+              isPlaying && !isControlsVisible ? "opacity-0" : "opacity-100",
+              isPlaying && !isControlsVisible ? "pointer-events-none" : "pointer-events-auto"
+            )}
+            onClick={togglePlay}
+          >
+            <div className="bg-black/30 backdrop-blur-sm p-6 rounded-full">
               {isPlaying ? (
-                <Pause className="h-5 w-5" />
+                <Pause className="h-12 w-12 text-white" />
               ) : (
-                <Play className="h-5 w-5" fill="white" />
+                <Play className="h-12 w-12 text-white" fill="white" />
               )}
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-white hover:bg-white/10"
-              onClick={skipBackward}
-            >
-              <SkipBack className="h-5 w-5" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-white hover:bg-white/10"
-              onClick={skipForward}
-            >
-              <SkipForward className="h-5 w-5" />
-            </Button>
-            
-            <div className="flex items-center space-x-2 group relative">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="text-white hover:bg-white/10"
-                onClick={toggleMute}
-              >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="h-5 w-5" />
-                ) : (
-                  <Volume2 className="h-5 w-5" />
-                )}
-              </Button>
-              
-              <div className="w-0 overflow-hidden group-hover:w-24 transition-all duration-300">
-                <Slider
-                  value={[isMuted ? 0 : volume * 100]}
-                  min={0}
-                  max={100}
-                  step={1}
-                  onValueChange={handleVolumeChange}
-                  className="cursor-pointer"
-                />
-              </div>
             </div>
-            
-            <span className="text-white/90 text-sm">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <span className="text-white/90 text-sm hidden sm:inline-block">
-              {title}
-            </span>
+          <div 
+            className={cn(
+              "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent px-4 py-5 transition-opacity duration-300",
+              isPlaying && !isControlsVisible ? "opacity-0" : "opacity-100",
+              isPlaying && !isControlsVisible ? "pointer-events-none" : "pointer-events-auto"
+            )}
+          >
+            <div className="mb-4">
+              <Slider
+                value={[progress]}
+                min={0}
+                max={100}
+                step={0.1}
+                onValueChange={handleProgressChange}
+                className="cursor-pointer"
+              />
+            </div>
             
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-white hover:bg-white/10"
-              onClick={toggleFullscreen}
-            >
-              {isFullscreen ? (
-                <Minimize className="h-5 w-5" />
-              ) : (
-                <Maximize className="h-5 w-5" />
-              )}
-            </Button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-white hover:bg-white/10"
+                  onClick={togglePlay}
+                >
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5" />
+                  ) : (
+                    <Play className="h-5 w-5" fill="white" />
+                  )}
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-white hover:bg-white/10"
+                  onClick={skipBackward}
+                >
+                  <SkipBack className="h-5 w-5" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-white hover:bg-white/10"
+                  onClick={skipForward}
+                >
+                  <SkipForward className="h-5 w-5" />
+                </Button>
+                
+                <div className="flex items-center space-x-2 group relative">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="text-white hover:bg-white/10"
+                    onClick={toggleMute}
+                  >
+                    {isMuted || volume === 0 ? (
+                      <VolumeX className="h-5 w-5" />
+                    ) : (
+                      <Volume2 className="h-5 w-5" />
+                    )}
+                  </Button>
+                  
+                  <div className="w-0 overflow-hidden group-hover:w-24 transition-all duration-300">
+                    <Slider
+                      value={[isMuted ? 0 : volume * 100]}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onValueChange={handleVolumeChange}
+                      className="cursor-pointer"
+                    />
+                  </div>
+                </div>
+                
+                <span className="text-white/90 text-sm">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <span className="text-white/90 text-sm hidden sm:inline-block">
+                  {title}
+                </span>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="text-white hover:bg-white/10"
+                  onClick={toggleFullscreen}
+                >
+                  {isFullscreen ? (
+                    <Minimize className="h-5 w-5" />
+                  ) : (
+                    <Maximize className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

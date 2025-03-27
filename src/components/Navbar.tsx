@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Search, Menu, X, LogOut, User, Settings } from 'lucide-react';
 import SearchBar from './SearchBar';
+import Logo from './Logo';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -23,7 +23,6 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
-  // Update navbar appearance on scroll
   useEffect(() => {
     const handleScroll = () => {
       const isScrolled = window.scrollY > 20;
@@ -44,7 +43,6 @@ const Navbar = () => {
     setShowSearch(!showSearch);
   };
 
-  // Close mobile menu when clicking a link
   const handleNavigation = () => {
     setMobileMenuOpen(false);
     setShowSearch(false);
@@ -60,19 +58,13 @@ const Navbar = () => {
       }`}
     >
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        {/* Logo */}
         <Link to="/" className="flex items-center space-x-2" onClick={handleNavigation}>
-          <div className="bg-primary rounded-sm p-1">
-            <span className="text-white font-bold text-lg">PLEX</span>
-          </div>
-          <span className={`font-bold text-lg tracking-tight transition-opacity duration-300 ${
-            showOnHomeOnly ? 'text-white' : 'text-primary'
-          }`}>
-            STREAM
-          </span>
+          <Logo 
+            variant={showOnHomeOnly ? 'light' : 'default'} 
+            size="md" 
+          />
         </Link>
 
-        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-6">
           <div className="flex items-center space-x-6">
             <Link 
@@ -157,7 +149,6 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Mobile Menu Button */}
         <button 
           className="md:hidden p-2"
           onClick={toggleMobileMenu}
@@ -171,7 +162,6 @@ const Navbar = () => {
         </button>
       </div>
 
-      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden absolute top-16 left-0 w-full bg-background/95 backdrop-blur-lg shadow-lg slide-down">
           <div className="container mx-auto px-4 py-4 flex flex-col space-y-4">
@@ -219,7 +209,6 @@ const Navbar = () => {
         </div>
       )}
 
-      {/* Search Overlay */}
       {showSearch && (
         <div className="absolute top-16 left-0 w-full bg-background/95 backdrop-blur-lg shadow-lg slide-down">
           <div className="container mx-auto px-4 py-4">

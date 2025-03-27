@@ -21,6 +21,11 @@ const MediaCard = ({ media, size = 'medium' }: MediaCardProps) => {
     navigate(`/details/${media.media_type}/${media.id}`);
   };
 
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/details/${media.media_type}/${media.id}`);
+  };
+
   const handleAddToList = (e: React.MouseEvent) => {
     e.stopPropagation();
     toast({
@@ -87,6 +92,7 @@ const MediaCard = ({ media, size = 'medium' }: MediaCardProps) => {
             <button 
               className="flex-1 py-1.5 bg-white rounded-md hover:bg-white/90 transition-colors flex items-center justify-center"
               aria-label="Play"
+              onClick={handlePlay}
             >
               <Play className="h-4 w-4 text-primary" fill="currentColor" />
               <span className="ml-1 text-primary text-xs font-medium">Play</span>
