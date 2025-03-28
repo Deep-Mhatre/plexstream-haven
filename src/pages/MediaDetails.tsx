@@ -226,7 +226,15 @@ const MediaDetails = () => {
               Close
             </Button>
             <div className="aspect-video w-full">
-              <VideoPlayer />
+              <VideoPlayer 
+                videoUrl={media.videos?.results?.[0]?.key ? 
+                  `https://www.youtube.com/watch?v=${media.videos.results[0].key}` : 
+                  undefined
+                }
+                thumbnailUrl={backdropUrl}
+                title={title}
+                autoPlay={true}
+              />
             </div>
           </div>
         </div>

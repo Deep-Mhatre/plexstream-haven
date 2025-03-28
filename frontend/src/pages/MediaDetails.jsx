@@ -7,20 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Play, Plus, Heart, Share2, ChevronLeft } from 'lucide-react';
 import MediaSlider from '@/components/MediaSlider';
 import { useToast } from '@/hooks/use-toast';
+import { formatDate } from '@/lib/utils';
 
 const MediaDetails = () => {
   const { mediaType, id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showVideo, setShowVideo] = useState(false);
   
-  // Convert id to string to fix TypeScript error
   const { data: media, isLoading: mediaLoading } = useQuery({
     queryKey: ['mediaDetails', mediaType, id],
     queryFn: () => fetchMediaDetails(mediaType, id.toString()),
   });
   
-  // Convert id to string to fix TypeScript error
   const { data: similarMedia, isLoading: similarLoading } = useQuery({
     queryKey: ['similarMedia', mediaType, id],
     queryFn: () => fetchSimilarMedia(mediaType, id.toString()),
@@ -47,6 +47,10 @@ const MediaDetails = () => {
       title: "Share",
       description: `Share this media with your friends.`,
     });
+  };
+
+  const handlePlayVideo = () => {
+    setShowVideo(true);
   };
 
   if (mediaLoading || !media) {
@@ -79,10 +83,13 @@ const MediaDetails = () => {
     number_of_episodes,
     backdrop_path,
     poster_path,
+    videos,
   } = media;
 
-  const formattedReleaseDate = release_date ? new Date(release_date).toLocaleDateString() : null;
-  const formattedFirstAirDate = first_air_date ? new Date(first_air_date).toLocaleDateString() : null;
+  const mediaTitle = title || name;
+  const backdropUrl = `https://image.tmdb.org/t/p/original/${backdrop_path || poster_path}`;
+  const formattedReleaseDate = release_date ? formatDate(release_date) : null;
+  const formattedFirstAirDate = first_air_date ? formatDate(first_air_date) : null;
   const rating = vote_average ? vote_average.toFixed(1) : 'N/A';
 
   return (
@@ -93,8 +100,8 @@ const MediaDetails = () => {
       <section className="relative">
         <div className="relative h-[60vh] md:h-[75vh] lg:h-[90vh] overflow-hidden">
           <img
-            src={`https://image.tmdb.org/t/p/original/${backdrop_path || poster_path}`}
-            alt={title || name || 'Media Backdrop'}
+            src={backdropUrl}
+            alt={mediaTitle || 'Media Backdrop'}
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
           <div className="absolute inset-0 bg-black/60"></div>
@@ -111,7 +118,7 @@ const MediaDetails = () => {
                 <span className="sr-only">Go back</span>
               </Button>
               
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">{title || name}</h1>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4">{mediaTitle}</h1>
               
               <div className="flex items-center space-x-4 mb-4">
                 <span className="text-lg font-semibold">{rating} / 10</span>
@@ -130,7 +137,7 @@ const MediaDetails = () => {
               <p className="text-lg mb-6 line-clamp-3">{overview}</p>
               
               <div className="flex items-center space-x-4">
-                <Button>
+                <Button onClick={handlePlayVideo}>
                   <Play className="mr-2 h-4 w-4" />
                   Play
                 </Button>
@@ -151,6 +158,34 @@ const MediaDetails = () => {
           </div>
         </div>
       </section>
+
+      {/* Video Player Modal */}
+      {showVideo && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-5xl">
+            <Button 
+              className="absolute top-2 right-2 z-10" 
+              variant="destructive" 
+              size="sm" 
+              onClick={() => setShowVideo(false)}
+            >
+              Close
+            </Button>
+            <div className="aspect-video w-full">
+              <VideoPlayer 
+                videoUrl={videos?.results?.[0]?.key ? 
+                  `https://www.youtube.com/watch?v=${videos.results[0].key}` : 
+                  undefined
+                }
+                thumbnailUrl={backdropUrl}
+                title={mediaTitle}
+                autoPlay={true}
+                onClose={() => setShowVideo(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs Section */}
       <section className="bg-muted py-8">
