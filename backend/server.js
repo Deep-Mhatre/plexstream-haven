@@ -13,6 +13,29 @@ app.use(express.json());
 
 // Environment variables
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+
+// TMDB API base URL
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+// Helper function for TMDB API requests
+const fetchFromTMDb = async (endpoint, params = {}) => {
+  try {
+    const url = `${TMDB_BASE_URL}${endpoint}`;
+    const response = await axios.get(url, {
+      params: {
+        api_key: TMDB_API_KEY,
+        language: 'en-US',
+        ...params
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('TMDB API error:', error.message);
+    throw error;
+  }
+};
 
 // Helper function for OMDb API requests
 const fetchFromOMDb = async (params) => {
@@ -31,100 +54,104 @@ const fetchFromOMDb = async (params) => {
     
     return response.data;
   } catch (error) {
-    console.error('API error:', error);
+    console.error('OMDb API error:', error.message);
     throw error;
   }
 };
 
-// Process OMDb data into our app's format
-const processOMDbItem = (item, mediaType = "movie") => {
-  return {
-    id: item.imdbID,
-    title: item.Title,
-    name: item.Title,
-    overview: item.Plot,
-    poster_path: item.Poster !== "N/A" ? item.Poster : null,
-    backdrop_path: null, // OMDb doesn't provide backdrop images
-    release_date: item.Released !== "N/A" ? item.Released : item.Year,
-    first_air_date: item.Released !== "N/A" ? item.Released : item.Year,
-    vote_average: item.imdbRating !== "N/A" ? parseFloat(item.imdbRating) : 0,
-    media_type: mediaType,
-    genre_ids: item.Genre ? item.Genre.split(", ").map(g => g.trim()) : [],
-    genres: item.Genre ? item.Genre.split(", ").map((name, id) => ({ id, name })) : []
-  };
-};
-
-// Routes
-app.get('/api/search', async (req, res) => {
+// TMDB Routes
+app.get('/api/tmdb/trending/:mediaType/:timeWindow', async (req, res) => {
   try {
-    const { query } = req.query;
-    
-    const movies = await fetchFromOMDb({ s: query, type: "movie" });
-    const tvShows = await fetchFromOMDb({ s: query, type: "series" });
-    
-    const processedMovies = movies.Search ? 
-      movies.Search.map(item => processOMDbItem(item, "movie")) : [];
-    
-    const processedTVShows = tvShows.Search ? 
-      tvShows.Search.map(item => processOMDbItem(item, "tv")) : [];
-    
-    res.json([...processedMovies, ...processedTVShows]);
+    const { mediaType, timeWindow } = req.params;
+    const data = await fetchFromTMDb(`/trending/${mediaType}/${timeWindow}`);
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/media/:mediaType/:id', async (req, res) => {
+app.get('/api/tmdb/movie/popular', async (req, res) => {
+  try {
+    const data = await fetchFromTMDb('/movie/popular');
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/tmdb/tv/popular', async (req, res) => {
+  try {
+    const data = await fetchFromTMDb('/tv/popular');
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/tmdb/movie/top_rated', async (req, res) => {
+  try {
+    const data = await fetchFromTMDb('/movie/top_rated');
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/tmdb/tv/top_rated', async (req, res) => {
+  try {
+    const data = await fetchFromTMDb('/tv/top_rated');
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/tmdb/:mediaType/:id', async (req, res) => {
   try {
     const { mediaType, id } = req.params;
-    const data = await fetchFromOMDb({ i: id, plot: "full" });
-    const processedData = processOMDbItem(data, mediaType);
-    
-    // Add additional details
-    processedData.credits = {
-      cast: data.Actors ? data.Actors.split(", ").map((name, id) => ({ id, name, character: "" })) : [],
-      crew: data.Director ? [{ id: 1, name: data.Director, job: "Director" }] : []
-    };
-    
-    processedData.videos = { results: [] };
-    processedData.tagline = data.Awards !== "N/A" ? data.Awards : "";
-    processedData.runtime = data.Runtime !== "N/A" ? parseInt(data.Runtime) : 0;
-    
-    if (mediaType === "tv") {
-      processedData.number_of_seasons = data.totalSeasons !== "N/A" ? parseInt(data.totalSeasons, 10) : 1;
-    }
-    
-    res.json(processedData);
+    const append = req.query.append_to_response || 'videos,credits';
+    const data = await fetchFromTMDb(`/${mediaType}/${id}`, { append_to_response: append });
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+app.get('/api/tmdb/:mediaType/:id/recommendations', async (req, res) => {
+  try {
+    const { mediaType, id } = req.params;
+    const data = await fetchFromTMDb(`/${mediaType}/${id}/recommendations`);
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/tmdb/search/multi', async (req, res) => {
+  try {
+    const { query } = req.query;
+    const data = await fetchFromTMDb('/search/multi', { query });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// OMDb Routes
+app.get('/api/omdb', async (req, res) => {
+  try {
+    const data = await fetchFromOMDb(req.query);
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fallback trending endpoint for backward compatibility
 app.get('/api/trending', async (req, res) => {
   try {
-    const popular = await fetchFromOMDb({ s: "marvel", type: "movie" });
-    const results = popular.Search ? popular.Search.map(item => processOMDbItem(item, "movie")) : [];
-    res.json(results);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/movies/popular', async (req, res) => {
-  try {
-    const popular = await fetchFromOMDb({ s: "action", type: "movie", y: new Date().getFullYear() });
-    const results = popular.Search ? popular.Search.map(item => processOMDbItem(item, "movie")) : [];
-    res.json(results);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/tvshows/popular', async (req, res) => {
-  try {
-    const popular = await fetchFromOMDb({ s: "series", type: "series" });
-    const results = popular.Search ? popular.Search.map(item => processOMDbItem(item, "tv")) : [];
-    res.json(results);
+    const data = await fetchFromTMDb('/trending/all/week');
+    res.json(data.results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
