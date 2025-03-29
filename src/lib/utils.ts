@@ -1,15 +1,15 @@
 
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
 }
 
 /**
  * Formats a date string to a human-readable format
- * @param dateString - The date string to format
- * @returns Formatted date string
+ * @param {string} dateString - The date string to format
+ * @returns {string} Formatted date string
  */
 export function formatDate(dateString: string): string {
   if (!dateString) return '';

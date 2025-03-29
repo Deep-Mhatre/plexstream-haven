@@ -11,7 +11,6 @@ import {
 } from '@/services/api';
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
-import MediaSlider from '@/components/MediaSlider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -106,34 +105,107 @@ const Browse = () => {
           </div>
           
           <TabsContent value="all" className="space-y-10">
-            <MediaSlider title="Trending Now" media={trendingData || []} isLoading={trendingLoading} />
-            <MediaSlider title="Popular Movies" media={popularMovies || []} isLoading={popularMoviesLoading} />
-            <MediaSlider title="Popular TV Shows" media={popularTVShows || []} isLoading={popularTVShowsLoading} />
-            <MediaSlider title="Top Rated Movies" media={topRatedMovies || []} size="small" isLoading={topRatedMoviesLoading} />
-            <MediaSlider title="Top Rated TV Shows" media={topRatedTVShows || []} size="small" isLoading={topRatedTVShowsLoading} />
+            {trendingData && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Trending Now</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(trendingData, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            {popularMovies && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Popular Movies</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(popularMovies, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            {popularTVShows && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Popular TV Shows</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(popularTVShows, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            {topRatedMovies && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Top Rated Movies</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(topRatedMovies, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            {topRatedTVShows && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Top Rated TV Shows</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(topRatedTVShows, null, 2)}
+                </pre>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="movies" className="space-y-10">
-            <MediaSlider title="Popular Movies" media={popularMovies || []} isLoading={popularMoviesLoading} />
-            <MediaSlider title="Top Rated Movies" media={topRatedMovies || []} isLoading={topRatedMoviesLoading} />
+            {popularMovies && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Popular Movies</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(popularMovies, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            {topRatedMovies && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Top Rated Movies</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(topRatedMovies, null, 2)}
+                </pre>
+              </div>
+            )}
+            
             {trendingData && (
-              <MediaSlider 
-                title="Trending Movies" 
-                media={trendingData.filter(item => item.media_type === 'movie')} 
-                isLoading={trendingLoading} 
-              />
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Trending Movies</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(trendingData.filter(item => item.media_type === 'movie'), null, 2)}
+                </pre>
+              </div>
             )}
           </TabsContent>
           
           <TabsContent value="tv" className="space-y-10">
-            <MediaSlider title="Popular TV Shows" media={popularTVShows || []} isLoading={popularTVShowsLoading} />
-            <MediaSlider title="Top Rated TV Shows" media={topRatedTVShows || []} isLoading={topRatedTVShowsLoading} />
+            {popularTVShows && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Popular TV Shows</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(popularTVShows, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            {topRatedTVShows && (
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Top Rated TV Shows</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(topRatedTVShows, null, 2)}
+                </pre>
+              </div>
+            )}
+            
             {trendingData && (
-              <MediaSlider 
-                title="Trending TV Shows" 
-                media={trendingData.filter(item => item.media_type === 'tv')} 
-                isLoading={trendingLoading} 
-              />
+              <div className="mb-10">
+                <h2 className="text-xl font-semibold mb-4">Trending TV Shows</h2>
+                <pre className="bg-slate-800 p-4 rounded-lg overflow-auto max-h-60">
+                  {JSON.stringify(trendingData.filter(item => item.media_type === 'tv'), null, 2)}
+                </pre>
+              </div>
             )}
           </TabsContent>
         </Tabs>
