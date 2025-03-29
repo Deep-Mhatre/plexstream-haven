@@ -1,7 +1,11 @@
 
-// TMDB API configuration
+// API configuration
 export const TMDB_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI2YzYxYTQ4NDU3NGE4NGNhODQwODJiM2NjNjg0OTE0MCIsIm5iZiI6MTczOTAyNjEzOS41NTUsInN1YiI6IjY3YTc2ZWRiZGNmNzVhZmJlMmYxMGY3ZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.NZ7j6cUan7jO8BJSLuKu-LO8vZDvFORG1z7JJ6Hfsec'; // User provided JWT token
-export const TMDB_BASE_URL = 'https://api.themoviedb.org/3'; // Directly use TMDB API
+export const TMDB_BASE_URL = 'https://api.themoviedb.org/3'; // TMDB API
+
+// OMDB API configuration
+export const OMDB_API_KEY = 'fe53463f'; // User provided OMDB API key
+export const OMDB_BASE_URL = 'https://www.omdbapi.com';
 
 // Fallback data for when API is unavailable
 import { Media } from './types';

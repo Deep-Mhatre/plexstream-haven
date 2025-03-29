@@ -1,22 +1,38 @@
 
 import { Media } from './types';
-import { fetchFromAPI } from './utils';
+import { fetchFromOMDB, processOMDBItem } from './utils';
 import { FALLBACK_MEDIA } from './config';
 
-// Fetch popular movies
+// Fetch popular movies from OMDB
 export const fetchPopularMovies = async (): Promise<Media[]> => {
-  const fallbackData = { 
-    results: FALLBACK_MEDIA.filter(item => item.media_type === 'movie')
-  };
-  const data = await fetchFromAPI('/movie/popular', fallbackData);
-  return data.results || [];
+  try {
+    // Using "action" as a popular movie genre search
+    const data = await fetchFromOMDB({ s: 'action', type: 'movie', y: new Date().getFullYear().toString() });
+    
+    if (data.Search && data.Search.length > 0) {
+      return data.Search.map((item: any) => processOMDBItem(item, 'movie'));
+    }
+    
+    return FALLBACK_MEDIA.filter(item => item.media_type === 'movie');
+  } catch (error) {
+    console.error('Popular movies fetch error:', error);
+    return FALLBACK_MEDIA.filter(item => item.media_type === 'movie');
+  }
 };
 
-// Fetch top rated movies
+// Fetch top rated movies from OMDB
 export const fetchTopRatedMovies = async (): Promise<Media[]> => {
-  const fallbackData = { 
-    results: FALLBACK_MEDIA.filter(item => item.media_type === 'movie')
-  };
-  const data = await fetchFromAPI('/movie/top_rated', fallbackData);
-  return data.results || [];
+  try {
+    // Using "drama" as it often has higher ratings
+    const data = await fetchFromOMDB({ s: 'drama', type: 'movie' });
+    
+    if (data.Search && data.Search.length > 0) {
+      return data.Search.map((item: any) => processOMDBItem(item, 'movie'));
+    }
+    
+    return FALLBACK_MEDIA.filter(item => item.media_type === 'movie');
+  } catch (error) {
+    console.error('Top rated movies fetch error:', error);
+    return FALLBACK_MEDIA.filter(item => item.media_type === 'movie');
+  }
 };
