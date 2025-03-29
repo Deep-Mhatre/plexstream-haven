@@ -1,7 +1,6 @@
-
 // TMDB API configuration
-const TMDB_API_KEY = 'api_key_placeholder'; // Will be replaced by backend proxy
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3'; // Directly use TMDB API as fallback
+const TMDB_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI2YzYxYTQ4NDU3NGE4NGNhODQwODJiM2NjNjg0OTE0MCIsIm5iZiI6MTczOTAyNjEzOS41NTUsInN1YiI6IjY3YTc2ZWRiZGNmNzVhZmJlMmYxMGY3ZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.NZ7j6cUan7jO8BJSLuKu-LO8vZDvFORG1z7JJ6Hfsec'; // User provided JWT token
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3'; // Directly use TMDB API
 
 // Fallback data for when API is unavailable
 const FALLBACK_MEDIA: Media[] = [
@@ -76,29 +75,24 @@ export interface MediaDetails extends Media {
   };
 }
 
-// Helper function to make API requests with fallback
+// Helper function to make API requests with fallback and authorization header for TMDB
 const fetchFromAPI = async (endpoint: string, fallbackData: any = null): Promise<any> => {
   try {
     console.log(`Fetching from: ${TMDB_BASE_URL}${endpoint}`);
     
-    // Try the proxy first (which should handle API key injection)
-    const response = await fetch(`/api/tmdb${endpoint}`);
+    // Make direct API call with Authorization header
+    const response = await fetch(`${TMDB_BASE_URL}${endpoint}`, {
+      headers: {
+        'Authorization': `Bearer ${TMDB_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
     
-    // Check if the response is valid JSON (not HTML)
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return await response.json();
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
     }
     
-    // If proxy fails, try direct with API key as fallback
-    console.log('Proxy failed, trying direct API call');
-    const directResponse = await fetch(`${TMDB_BASE_URL}${endpoint}?api_key=${TMDB_API_KEY}`);
-    
-    if (directResponse.ok) {
-      return await directResponse.json();
-    }
-    
-    throw new Error('Failed to fetch data');
+    return await response.json();
   } catch (error) {
     console.error('API request failed:', error);
     if (fallbackData) {

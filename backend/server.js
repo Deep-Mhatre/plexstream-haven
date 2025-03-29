@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -18,15 +17,18 @@ const TMDB_API_KEY = process.env.TMDB_API_KEY;
 // TMDB API base URL
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-// Helper function for TMDB API requests
+// Helper function for TMDB API requests using JWT Bearer token
 const fetchFromTMDb = async (endpoint, params = {}) => {
   try {
     const url = `${TMDB_BASE_URL}${endpoint}`;
     const response = await axios.get(url, {
       params: {
-        api_key: TMDB_API_KEY,
         language: 'en-US',
         ...params
+      },
+      headers: {
+        'Authorization': `Bearer ${TMDB_API_KEY}`,
+        'Content-Type': 'application/json'
       }
     });
     
