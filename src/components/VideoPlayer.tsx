@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, X, Maximize, Minimize, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, X, Maximize, Minimize, SkipBack, SkipForward, Subtitles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface VideoPlayerProps {
   videoUrl?: string;
@@ -11,6 +12,7 @@ interface VideoPlayerProps {
   title: string;
   onClose?: () => void;
   autoPlay?: boolean;
+  showControls?: boolean;
 }
 
 const VideoPlayer = ({ 
@@ -18,8 +20,10 @@ const VideoPlayer = ({
   thumbnailUrl, 
   title, 
   onClose,
-  autoPlay = false 
+  autoPlay = false,
+  showControls = true
 }: VideoPlayerProps) => {
+  const { toast } = useToast();
   const [isPlaying, setIsPlaying] = useState(autoPlay);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -29,6 +33,8 @@ const VideoPlayer = ({
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [volume, setVolume] = useState(1);
   const [isVideoError, setIsVideoError] = useState(false);
+  const [showSubtitles, setShowSubtitles] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -42,7 +48,7 @@ const VideoPlayer = ({
     const match = url.match(youtubeRegex);
     
     if (match && match[1]) {
-      return `https://www.youtube.com/embed/${match[1]}?autoplay=${autoPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&enablejsapi=1`;
+      return `https://www.youtube.com/embed/${match[1]}?autoplay=${autoPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&enablejsapi=1&controls=${showControls ? 1 : 0}`;
     }
     
     // If it's a search URL, extract the search query and embed the first result
@@ -83,26 +89,47 @@ const VideoPlayer = ({
       setProgress(0);
       setCurrentTime(0);
       video.currentTime = 0;
+      toast({
+        title: "Playback finished",
+        description: `Finished playing ${title}`,
+      });
     };
 
     const handleError = (e: Event) => {
       console.error('Video error:', e);
       setIsVideoError(true);
       setIsPlaying(false);
+      toast({
+        title: "Playback error",
+        description: "Unable to play the video. Trying alternative sources.",
+        variant: "destructive"
+      });
+    };
+
+    const handleWaiting = () => {
+      setIsBuffering(true);
+    };
+
+    const handlePlaying = () => {
+      setIsBuffering(false);
     };
 
     video.addEventListener('timeupdate', updateTime);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('ended', handleEnded);
     video.addEventListener('error', handleError);
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('playing', handlePlaying);
 
     return () => {
       video.removeEventListener('timeupdate', updateTime);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('error', handleError);
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('playing', handlePlaying);
     };
-  }, []);
+  }, [title, toast]);
 
   useEffect(() => {
     if (isPlaying && videoRef.current && !youtubeEmbedUrl) {
@@ -110,11 +137,16 @@ const VideoPlayer = ({
         console.error('Error playing video:', error);
         setIsPlaying(false);
         setIsVideoError(true);
+        toast({
+          title: "Playback failed",
+          description: "Unable to play the video. Please try again later.",
+          variant: "destructive"
+        });
       });
     } else if (!isPlaying && videoRef.current && !youtubeEmbedUrl) {
       videoRef.current.pause();
     }
-  }, [isPlaying, youtubeEmbedUrl]);
+  }, [isPlaying, youtubeEmbedUrl, toast]);
 
   useEffect(() => {
     if (videoRef.current && !youtubeEmbedUrl) {
@@ -123,12 +155,50 @@ const VideoPlayer = ({
     }
   }, [volume, isMuted, youtubeEmbedUrl]);
 
+  // Load user preferences for video playback
+  useEffect(() => {
+    try {
+      const savedVolume = localStorage.getItem('plexstream_volume');
+      const savedMuted = localStorage.getItem('plexstream_muted');
+      const savedSubtitles = localStorage.getItem('plexstream_subtitles');
+      
+      if (savedVolume !== null) {
+        setVolume(parseFloat(savedVolume));
+      }
+      
+      if (savedMuted !== null) {
+        setIsMuted(savedMuted === 'true');
+      }
+      
+      if (savedSubtitles !== null) {
+        setShowSubtitles(savedSubtitles === 'true');
+      }
+    } catch (error) {
+      console.error('Error loading user preferences:', error);
+    }
+  }, []);
+
+  // Save user preferences when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('plexstream_volume', volume.toString());
+      localStorage.setItem('plexstream_muted', isMuted.toString());
+      localStorage.setItem('plexstream_subtitles', showSubtitles.toString());
+    } catch (error) {
+      console.error('Error saving user preferences:', error);
+    }
+  }, [volume, isMuted, showSubtitles]);
+
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
   };
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
+  };
+
+  const toggleSubtitles = () => {
+    setShowSubtitles(!showSubtitles);
   };
 
   const handleProgressChange = (value: number[]) => {
@@ -156,6 +226,11 @@ const VideoPlayer = ({
         setIsFullscreen(true);
       }).catch(err => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        toast({
+          title: "Fullscreen error",
+          description: "Unable to enter fullscreen mode",
+          variant: "destructive"
+        });
       });
     } else if (document.fullscreenElement) {
       document.exitFullscreen().then(() => {
@@ -203,19 +278,46 @@ const VideoPlayer = ({
     }
   };
 
+  const retryPlayback = () => {
+    setIsVideoError(false);
+    if (videoRef.current) {
+      videoRef.current.load();
+      setIsPlaying(true);
+    } else if (youtubeEmbedUrl) {
+      // Reload iframe
+      const container = playerRef.current;
+      if (container) {
+        const iframe = container.querySelector('iframe');
+        if (iframe) {
+          const src = iframe.src;
+          iframe.src = src;
+        }
+      }
+    }
+  };
+
   const renderErrorMessage = () => (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 p-6 text-center">
       <p className="text-white text-lg mb-4">Unable to load video content</p>
-      <Button 
-        variant="outline" 
-        className="bg-white/10 hover:bg-white/20 text-white"
-        onClick={() => {
-          // Try YouTube search as fallback
-          window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' trailer')}`, '_blank');
-        }}
-      >
-        Search on YouTube
-      </Button>
+      <div className="flex gap-2">
+        <Button 
+          variant="outline" 
+          className="bg-white/10 hover:bg-white/20 text-white"
+          onClick={retryPlayback}
+        >
+          Retry
+        </Button>
+        <Button 
+          variant="outline" 
+          className="bg-white/10 hover:bg-white/20 text-white"
+          onClick={() => {
+            // Try YouTube search as fallback
+            window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' trailer')}`, '_blank');
+          }}
+        >
+          Search on YouTube
+        </Button>
+      </div>
     </div>
   );
 
@@ -226,6 +328,12 @@ const VideoPlayer = ({
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setIsControlsVisible(false)}
     >
+      {isBuffering && !youtubeEmbedUrl && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+        </div>
+      )}
+      
       {youtubeEmbedUrl ? (
         <iframe
           className="w-full h-full"
@@ -245,6 +353,15 @@ const VideoPlayer = ({
             autoPlay={autoPlay}
           >
             <source src={actualVideoUrl} type="video/mp4" />
+            {showSubtitles && (
+              <track 
+                kind="subtitles" 
+                src="" 
+                srcLang="en" 
+                label="English" 
+                default 
+              />
+            )}
             Your browser does not support the video tag.
           </video>
           
@@ -356,6 +473,18 @@ const VideoPlayer = ({
                     />
                   </div>
                 </div>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className={cn(
+                    "text-white hover:bg-white/10",
+                    showSubtitles && "bg-white/20"
+                  )}
+                  onClick={toggleSubtitles}
+                >
+                  <Subtitles className="h-5 w-5" />
+                </Button>
                 
                 <span className="text-white/90 text-sm">
                   {formatTime(currentTime)} / {formatTime(duration)}

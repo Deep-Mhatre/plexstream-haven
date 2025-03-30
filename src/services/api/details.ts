@@ -1,4 +1,3 @@
-
 import { MediaDetails } from './types';
 import { fetchFromOMDB, processOMDBItem, fetchFromAPI } from './utils';
 import { FALLBACK_MEDIA } from './config';
@@ -109,70 +108,112 @@ export const fetchRecommendations = async (mediaType: 'movie' | 'tv', id: string
   }
 };
 
-// Get video URL for a media (either from TMDB or use YouTube search as fallback)
+// Improved video URL fetching with multiple fallbacks
 export const getVideoUrl = async (mediaType: 'movie' | 'tv', id: string, title: string): Promise<string | null> => {
   try {
-    // First try to get videos from TMDB if we have a TMDB API key
-    let trailer = null;
+    // Try multiple strategies to get a valid video URL
     
-    try {
-      // If ID is an IMDB ID (starts with tt), we need to search TMDB first to get their ID
-      if (id.startsWith('tt')) {
-        const searchQuery = encodeURIComponent(title);
-        
-        try {
-          const searchResults = await fetchFromAPI(`/search/${mediaType}?query=${searchQuery}`);
+    // Strategy 1: Try TMDB API if ID is a TMDB ID or we can find a TMDB ID
+    if (!id.startsWith('tt')) {
+      // Direct TMDB ID, fetch videos directly
+      try {
+        const videosData = await fetchFromAPI(`/${mediaType}/${id}/videos`);
+        if (videosData?.results && videosData.results.length > 0) {
+          const trailer = videosData.results.find((video: any) => 
+            video.site === 'YouTube' && 
+            (video.type === 'Trailer' || video.type === 'Teaser')
+          );
           
-          if (searchResults?.results && searchResults.results.length > 0) {
-            const tmdbId = searchResults.results[0].id;
-            const videosData = await fetchFromAPI(`/${mediaType}/${tmdbId}/videos`);
-            
-            if (videosData?.results && videosData.results.length > 0) {
-              trailer = videosData.results.find((video: any) => 
-                video.site === 'YouTube' && 
-                (video.type === 'Trailer' || video.type === 'Teaser')
-              );
-            }
+          if (trailer && trailer.key) {
+            return `https://www.youtube.com/watch?v=${trailer.key}`;
           }
-        } catch (error) {
-          console.error('TMDB search error:', error);
-          // Fall through to fallback
         }
-      } else {
-        // If it's already a TMDB ID, just fetch directly
-        try {
-          const videosData = await fetchFromAPI(`/${mediaType}/${id}/videos`);
+      } catch (error) {
+        console.error('TMDB direct videos fetch error:', error);
+      }
+    } else {
+      // IMDB ID, try to find corresponding TMDB content first
+      try {
+        const searchQuery = encodeURIComponent(title);
+        const searchResults = await fetchFromAPI(`/search/${mediaType}?query=${searchQuery}`);
+        
+        if (searchResults?.results && searchResults.results.length > 0) {
+          const tmdbId = searchResults.results[0].id;
+          const videosData = await fetchFromAPI(`/${mediaType}/${tmdbId}/videos`);
           
           if (videosData?.results && videosData.results.length > 0) {
-            trailer = videosData.results.find((video: any) => 
+            const trailer = videosData.results.find((video: any) => 
               video.site === 'YouTube' && 
               (video.type === 'Trailer' || video.type === 'Teaser')
             );
+            
+            if (trailer && trailer.key) {
+              return `https://www.youtube.com/watch?v=${trailer.key}`;
+            }
           }
-        } catch (error) {
-          console.error('TMDB videos fetch error:', error);
-          // Fall through to fallback
         }
+      } catch (error) {
+        console.error('TMDB search and videos fetch error:', error);
       }
-    } catch (error) {
-      console.error('TMDB video fetch error:', error);
-      // Continue to fallback
     }
     
-    if (trailer && trailer.key) {
-      return `https://www.youtube.com/watch?v=${trailer.key}`;
-    }
+    // Strategy 2: Try direct YouTube search with specific parameters
+    const year = new Date().getFullYear();
+    const exactSearchQuery = `${title} ${mediaType === 'movie' ? 'movie' : 'tv'} trailer ${year} official`;
     
-    // For OMDB/IMDB titles, use a more specific search query
-    const searchQuery = `${title} ${mediaType === 'movie' ? 'movie' : 'tv'} trailer ${new Date().getFullYear()}`;
-    console.log('Using YouTube search query:', searchQuery);
-    
-    // Return a YouTube search URL as fallback
-    return `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
+    // Return YouTube search URL
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(exactSearchQuery)}`;
   } catch (error) {
     console.error('Error fetching video URL:', error);
     
     // Final fallback - just search for the title
     return `https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' trailer')}`;
+  }
+};
+
+// New function to track user viewing history
+export const trackMediaView = async (userId: string, mediaId: string, mediaType: 'movie' | 'tv', title: string): Promise<void> => {
+  try {
+    if (!userId || !mediaId) return;
+    
+    const historyItem = {
+      userId,
+      mediaId,
+      mediaType,
+      title,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Save to local storage for now (can be replaced with API call later)
+    const historyKey = `plexstream_history_${userId}`;
+    const historyJson = localStorage.getItem(historyKey);
+    const history = historyJson ? JSON.parse(historyJson) : [];
+    
+    // Remove duplicate if exists
+    const updatedHistory = history.filter((item: any) => item.mediaId !== mediaId);
+    updatedHistory.unshift(historyItem); // Add to beginning
+    
+    // Keep only last 50 items
+    if (updatedHistory.length > 50) {
+      updatedHistory.pop();
+    }
+    
+    localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+  } catch (error) {
+    console.error('Error tracking media view:', error);
+  }
+};
+
+// New function to get user viewing history
+export const getUserHistory = (userId: string): any[] => {
+  try {
+    if (!userId) return [];
+    
+    const historyKey = `plexstream_history_${userId}`;
+    const historyJson = localStorage.getItem(historyKey);
+    return historyJson ? JSON.parse(historyJson) : [];
+  } catch (error) {
+    console.error('Error getting user history:', error);
+    return [];
   }
 };

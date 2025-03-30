@@ -13,5 +13,18 @@ export { getImageUrl, formatDate } from './utils';
 export { fetchTrending } from './trending';
 export { fetchPopularMovies, fetchTopRatedMovies } from './movies';
 export { fetchPopularTVShows, fetchTopRatedTVShows } from './tv';
-export { fetchMediaDetails, fetchRecommendations, getVideoUrl } from './details';
+export { 
+  fetchMediaDetails, 
+  fetchRecommendations, 
+  getVideoUrl,
+  trackMediaView,
+  getUserHistory 
+} from './details';
 export { searchMedia } from './search';
+export { 
+  addToWatchList, 
+  removeFromWatchList, 
+  getWatchList,
+  isInWatchList,
+  clearWatchList
+} from './watchlist';
