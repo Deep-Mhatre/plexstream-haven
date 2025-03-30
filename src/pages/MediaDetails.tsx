@@ -2,18 +2,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Play, Plus, Star } from 'lucide-react';
+import { ChevronLeft, Play, Plus, Star, Film, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { fetchMediaDetails, fetchRecommendations, getImageUrl } from '@/services/api';
+import { fetchMediaDetails, fetchRecommendations, getImageUrl, getVideoUrl } from '@/services/api';
 import { formatDate } from '@/lib/utils';
 import VideoPlayer from '@/components/VideoPlayer';
+import { useToast } from '@/hooks/use-toast';
 
 const MediaDetails = () => {
   const { mediaType, id } = useParams<{ mediaType: 'movie' | 'tv'; id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showVideo, setShowVideo] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   
   const { data: media, isLoading: isMediaLoading } = useQuery({
     queryKey: ['media', mediaType, id],
@@ -27,14 +30,36 @@ const MediaDetails = () => {
     enabled: !!mediaType && !!id,
   });
 
+  // Fetch video URL if not available in media data
+  useEffect(() => {
+    const fetchVideo = async () => {
+      if (media && (!media.videos || !media.videos.results || media.videos.results.length === 0)) {
+        try {
+          const url = await getVideoUrl(mediaType || 'movie', id || '', media.title || media.name || '');
+          setVideoUrl(url);
+        } catch (error) {
+          console.error('Failed to fetch video URL:', error);
+        }
+      } else if (media?.videos?.results?.[0]?.key) {
+        setVideoUrl(`https://www.youtube.com/watch?v=${media.videos.results[0].key}`);
+      }
+    };
+    
+    fetchVideo();
+  }, [media, mediaType, id]);
+
   // Log user view to backend for recommendation system
   useEffect(() => {
     if (media) {
-      fetch(`/api/history/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaId: id, mediaType, title: media.title || media.name })
-      }).catch(err => console.error('Failed to log view history:', err));
+      try {
+        fetch(`/api/history/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mediaId: id, mediaType, title: media.title || media.name })
+        }).catch(err => console.error('Failed to log view history:', err));
+      } catch (error) {
+        // Ignore errors from history logging
+      }
     }
   }, [media, id, mediaType]);
   
@@ -47,6 +72,13 @@ const MediaDetails = () => {
   }
   
   const handleBackClick = () => navigate(-1);
+  const handleWatchNow = () => {
+    setShowVideo(true);
+    toast({
+      title: "Starting playback",
+      description: `Now playing ${media.title || media.name}`,
+    });
+  };
   
   const title = media.title || media.name || '';
   const releaseYear = media.release_date ? new Date(media.release_date).getFullYear() : 
@@ -160,7 +192,7 @@ const MediaDetails = () => {
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                  <span className="font-semibold">{media.vote_average.toFixed(1)}</span>
+                  <span className="font-semibold">{media.vote_average ? media.vote_average.toFixed(1) : 'N/A'}</span>
                 </div>
                 
                 <Separator orientation="vertical" className="h-5" />
@@ -199,11 +231,24 @@ const MediaDetails = () => {
                 ))}
               </div>
               
-              <div className="flex gap-4 pt-2">
-                <Button className="gap-2" onClick={() => setShowVideo(true)}>
-                  <Play className="h-4 w-4" />
+              <div className="flex flex-wrap gap-4 pt-2">
+                <Button 
+                  className="gap-2 bg-red-600 hover:bg-red-700 text-white" 
+                  onClick={handleWatchNow}
+                >
+                  <Play className="h-4 w-4 fill-current" />
+                  Watch Now
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="gap-2" 
+                  onClick={() => setShowVideo(true)}
+                >
+                  <Film className="h-4 w-4" />
                   Watch Trailer
                 </Button>
+                
                 <Button variant="secondary" className="gap-2">
                   <Plus className="h-4 w-4" />
                   Add to List
@@ -227,13 +272,15 @@ const MediaDetails = () => {
             </Button>
             <div className="aspect-video w-full">
               <VideoPlayer 
-                videoUrl={media.videos?.results?.[0]?.key ? 
-                  `https://www.youtube.com/watch?v=${media.videos.results[0].key}` : 
-                  undefined
+                videoUrl={videoUrl || 
+                  (media.videos?.results?.[0]?.key ? 
+                    `https://www.youtube.com/watch?v=${media.videos.results[0].key}` : 
+                    undefined)
                 }
                 thumbnailUrl={backdropUrl}
                 title={title}
                 autoPlay={true}
+                onClose={() => setShowVideo(false)}
               />
             </div>
           </div>

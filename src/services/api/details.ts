@@ -16,6 +16,9 @@ export const fetchMediaDetails = async (mediaType: 'movie' | 'tv', id: string): 
     // Process the basic media data
     const processedData = processOMDBItem(data, mediaType);
     
+    // Get video URL for trailers
+    const videoUrl = await getVideoUrl(mediaType, id, data.Title);
+    
     // Add additional details specific to MediaDetails type
     return {
       ...processedData,
@@ -43,7 +46,18 @@ export const fetchMediaDetails = async (mediaType: 'movie' | 'tv', id: string): 
         }] : []
       },
       videos: {
-        results: []
+        results: videoUrl ? [
+          {
+            id: '1',
+            key: videoUrl.includes('youtube.com/watch?v=') ? 
+              videoUrl.split('youtube.com/watch?v=')[1] : 
+              'trailer',
+            name: 'Trailer',
+            site: 'YouTube',
+            type: 'Trailer',
+            official: true
+          }
+        ] : []
       },
       number_of_seasons: mediaType === 'tv' && data.totalSeasons !== "N/A" ? 
         parseInt(data.totalSeasons) : undefined,
@@ -98,35 +112,46 @@ export const fetchRecommendations = async (mediaType: 'movie' | 'tv', id: string
 // Get video URL for a media (either from TMDB or use YouTube search as fallback)
 export const getVideoUrl = async (mediaType: 'movie' | 'tv', id: string, title: string): Promise<string | null> => {
   try {
-    // First try to get videos from TMDB
+    // First try to get videos from TMDB if we have a TMDB API key
     let trailer = null;
     
     try {
       // If ID is an IMDB ID (starts with tt), we need to search TMDB first to get their ID
       if (id.startsWith('tt')) {
         const searchQuery = encodeURIComponent(title);
-        const searchResults = await fetchFromAPI(`/search/${mediaType}?query=${searchQuery}`);
         
-        if (searchResults.results && searchResults.results.length > 0) {
-          const tmdbId = searchResults.results[0].id;
-          const videosData = await fetchFromAPI(`/${mediaType}/${tmdbId}/videos`);
+        try {
+          const searchResults = await fetchFromAPI(`/search/${mediaType}?query=${searchQuery}`);
           
-          if (videosData.results && videosData.results.length > 0) {
+          if (searchResults?.results && searchResults.results.length > 0) {
+            const tmdbId = searchResults.results[0].id;
+            const videosData = await fetchFromAPI(`/${mediaType}/${tmdbId}/videos`);
+            
+            if (videosData?.results && videosData.results.length > 0) {
+              trailer = videosData.results.find((video: any) => 
+                video.site === 'YouTube' && 
+                (video.type === 'Trailer' || video.type === 'Teaser')
+              );
+            }
+          }
+        } catch (error) {
+          console.error('TMDB search error:', error);
+          // Fall through to fallback
+        }
+      } else {
+        // If it's already a TMDB ID, just fetch directly
+        try {
+          const videosData = await fetchFromAPI(`/${mediaType}/${id}/videos`);
+          
+          if (videosData?.results && videosData.results.length > 0) {
             trailer = videosData.results.find((video: any) => 
               video.site === 'YouTube' && 
               (video.type === 'Trailer' || video.type === 'Teaser')
             );
           }
-        }
-      } else {
-        // If it's already a TMDB ID, just fetch directly
-        const videosData = await fetchFromAPI(`/${mediaType}/${id}/videos`);
-        
-        if (videosData.results && videosData.results.length > 0) {
-          trailer = videosData.results.find((video: any) => 
-            video.site === 'YouTube' && 
-            (video.type === 'Trailer' || video.type === 'Teaser')
-          );
+        } catch (error) {
+          console.error('TMDB videos fetch error:', error);
+          // Fall through to fallback
         }
       }
     } catch (error) {
@@ -134,14 +159,20 @@ export const getVideoUrl = async (mediaType: 'movie' | 'tv', id: string, title: 
       // Continue to fallback
     }
     
-    if (trailer) {
+    if (trailer && trailer.key) {
       return `https://www.youtube.com/watch?v=${trailer.key}`;
     }
     
-    // If no trailer found, search YouTube using the title as fallback
-    return `https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' trailer')}`;
+    // For OMDB/IMDB titles, use a more specific search query
+    const searchQuery = `${title} ${mediaType === 'movie' ? 'movie' : 'tv'} trailer ${new Date().getFullYear()}`;
+    console.log('Using YouTube search query:', searchQuery);
+    
+    // Return a YouTube search URL as fallback
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
   } catch (error) {
     console.error('Error fetching video URL:', error);
-    return null;
+    
+    // Final fallback - just search for the title
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' trailer')}`;
   }
 };

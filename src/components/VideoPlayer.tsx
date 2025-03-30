@@ -28,6 +28,7 @@ const VideoPlayer = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [volume, setVolume] = useState(1);
+  const [isVideoError, setIsVideoError] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -36,11 +37,23 @@ const VideoPlayer = ({
   const getYouTubeEmbedUrl = (url?: string) => {
     if (!url) return null;
     
-    const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
+    // Handle different YouTube URL formats
+    const youtubeRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/;
     const match = url.match(youtubeRegex);
     
     if (match && match[1]) {
-      return `https://www.youtube.com/embed/${match[1]}?autoplay=${autoPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}`;
+      return `https://www.youtube.com/embed/${match[1]}?autoplay=${autoPlay ? 1 : 0}&mute=${isMuted ? 1 : 0}&enablejsapi=1`;
+    }
+    
+    // If it's a search URL, extract the search query and embed the first result
+    const searchRegex = /youtube\.com\/results\?search_query=([^&]+)/;
+    const searchMatch = url?.match(searchRegex);
+    
+    if (searchMatch && searchMatch[1]) {
+      const searchQuery = decodeURIComponent(searchMatch[1]);
+      console.log('Using YouTube search query:', searchQuery);
+      // Create an embed that searches and plays the first result
+      return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(searchQuery)}&autoplay=${autoPlay ? 1 : 0}`;
     }
     
     return null;
@@ -48,6 +61,7 @@ const VideoPlayer = ({
 
   const youtubeEmbedUrl = getYouTubeEmbedUrl(videoUrl);
   
+  // Default video or fallback
   const actualVideoUrl = youtubeEmbedUrl ? null : (videoUrl || 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4');
 
   useEffect(() => {
@@ -61,6 +75,7 @@ const VideoPlayer = ({
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
+      setIsVideoError(false);
     };
 
     const handleEnded = () => {
@@ -70,14 +85,22 @@ const VideoPlayer = ({
       video.currentTime = 0;
     };
 
+    const handleError = (e: Event) => {
+      console.error('Video error:', e);
+      setIsVideoError(true);
+      setIsPlaying(false);
+    };
+
     video.addEventListener('timeupdate', updateTime);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('ended', handleEnded);
+    video.addEventListener('error', handleError);
 
     return () => {
       video.removeEventListener('timeupdate', updateTime);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('error', handleError);
     };
   }, []);
 
@@ -86,6 +109,7 @@ const VideoPlayer = ({
       videoRef.current.play().catch(error => {
         console.error('Error playing video:', error);
         setIsPlaying(false);
+        setIsVideoError(true);
       });
     } else if (!isPlaying && videoRef.current && !youtubeEmbedUrl) {
       videoRef.current.pause();
@@ -133,7 +157,7 @@ const VideoPlayer = ({
       }).catch(err => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`);
       });
-    } else {
+    } else if (document.fullscreenElement) {
       document.exitFullscreen().then(() => {
         setIsFullscreen(false);
       }).catch(err => {
@@ -179,6 +203,22 @@ const VideoPlayer = ({
     }
   };
 
+  const renderErrorMessage = () => (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 p-6 text-center">
+      <p className="text-white text-lg mb-4">Unable to load video content</p>
+      <Button 
+        variant="outline" 
+        className="bg-white/10 hover:bg-white/20 text-white"
+        onClick={() => {
+          // Try YouTube search as fallback
+          window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' trailer')}`, '_blank');
+        }}
+      >
+        Search on YouTube
+      </Button>
+    </div>
+  );
+
   return (
     <div 
       ref={playerRef} 
@@ -195,17 +235,21 @@ const VideoPlayer = ({
           title={title}
         ></iframe>
       ) : (
-        <video
-          ref={videoRef}
-          className="w-full h-full object-contain"
-          poster={thumbnailUrl}
-          playsInline
-          preload="metadata"
-          autoPlay={autoPlay}
-        >
-          <source src={actualVideoUrl} type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+        <>
+          <video
+            ref={videoRef}
+            className="w-full h-full object-contain"
+            poster={thumbnailUrl}
+            playsInline
+            preload="metadata"
+            autoPlay={autoPlay}
+          >
+            <source src={actualVideoUrl} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+          
+          {isVideoError && renderErrorMessage()}
+        </>
       )}
       
       {onClose && (
@@ -217,7 +261,7 @@ const VideoPlayer = ({
         </button>
       )}
       
-      {!youtubeEmbedUrl && (
+      {!youtubeEmbedUrl && !isVideoError && (
         <>
           <div 
             className={cn(
