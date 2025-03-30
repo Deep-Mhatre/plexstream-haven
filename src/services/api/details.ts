@@ -9,6 +9,10 @@ export const fetchMediaDetails = async (mediaType: 'movie' | 'tv', id: string): 
     // Fetch details from OMDB using the IMDB ID
     const data = await fetchFromOMDB({ i: id, plot: 'full' });
     
+    if (!data || data.Response === "False") {
+      throw new Error(data?.Error || "Failed to fetch media details");
+    }
+    
     // Process the basic media data
     const processedData = processOMDBItem(data, mediaType);
     
@@ -91,14 +95,44 @@ export const fetchRecommendations = async (mediaType: 'movie' | 'tv', id: string
   }
 };
 
-// Get video URL for a media (still using TMDB for trailers as OMDB doesn't provide video links)
+// Get video URL for a media (either from TMDB or use YouTube search as fallback)
 export const getVideoUrl = async (mediaType: 'movie' | 'tv', id: string, title: string): Promise<string | null> => {
   try {
-    // First try TMDB videos
-    const details = await fetchFromAPI(`/${mediaType}/${id}/videos`);
-    const trailer = details.results?.find((video: any) => 
-      video.site === 'YouTube' && (video.type === 'Trailer' || video.type === 'Teaser')
-    );
+    // First try to get videos from TMDB
+    let trailer = null;
+    
+    try {
+      // If ID is an IMDB ID (starts with tt), we need to search TMDB first to get their ID
+      if (id.startsWith('tt')) {
+        const searchQuery = encodeURIComponent(title);
+        const searchResults = await fetchFromAPI(`/search/${mediaType}?query=${searchQuery}`);
+        
+        if (searchResults.results && searchResults.results.length > 0) {
+          const tmdbId = searchResults.results[0].id;
+          const videosData = await fetchFromAPI(`/${mediaType}/${tmdbId}/videos`);
+          
+          if (videosData.results && videosData.results.length > 0) {
+            trailer = videosData.results.find((video: any) => 
+              video.site === 'YouTube' && 
+              (video.type === 'Trailer' || video.type === 'Teaser')
+            );
+          }
+        }
+      } else {
+        // If it's already a TMDB ID, just fetch directly
+        const videosData = await fetchFromAPI(`/${mediaType}/${id}/videos`);
+        
+        if (videosData.results && videosData.results.length > 0) {
+          trailer = videosData.results.find((video: any) => 
+            video.site === 'YouTube' && 
+            (video.type === 'Trailer' || video.type === 'Teaser')
+          );
+        }
+      }
+    } catch (error) {
+      console.error('TMDB video fetch error:', error);
+      // Continue to fallback
+    }
     
     if (trailer) {
       return `https://www.youtube.com/watch?v=${trailer.key}`;

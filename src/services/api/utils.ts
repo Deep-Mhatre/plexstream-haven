@@ -82,11 +82,11 @@ export const processOMDBItem = (item: any, mediaType: 'movie' | 'tv' = 'movie'):
   };
 };
 
-// Get TMDB image URL 
+// Get TMDB image URL with proper fallback for OMDB images
 export const getImageUrl = (path: string | null, size: 'original' | 'w500' | 'w300' | 'w185' = 'w500'): string => {
   if (!path) return 'https://via.placeholder.com/500x750?text=No+Image';
   
-  // If it's already a full URL, return it directly
+  // If it's already a full URL (like from OMDB), return it directly
   if (path.startsWith('http')) {
     return path;
   }
