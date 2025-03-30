@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, X, Maximize, Minimize, SkipBack, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -82,7 +83,10 @@ const VideoPlayer = ({
 
   useEffect(() => {
     if (isPlaying && videoRef.current && !youtubeEmbedUrl) {
-      videoRef.current.play();
+      videoRef.current.play().catch(error => {
+        console.error('Error playing video:', error);
+        setIsPlaying(false);
+      });
     } else if (!isPlaying && videoRef.current && !youtubeEmbedUrl) {
       videoRef.current.pause();
     }
